@@ -207,46 +207,63 @@
             }
         };
 
-        // 3. 核心代谢逻辑
         async function startMetabolism() {
             if (!GEMINI_API_KEY) { alert("请先配置 API Key"); return updateKey(); }
             let input = document.getElementById('rawInput').value.trim();
             if (!input) return;
-
-            // UI 状态重置
+        
             document.getElementById('mill-modal').style.display = 'flex';
             document.getElementById('recall-area').style.display = 'none';
-            document.getElementById('ai-summary').innerText = "";
             document.getElementById('ai-title').innerText = "🧠 正在思考...";
-
-            // 网页抓取判断 (Jina Reader)
+        
+            // 网页抓取部分 (保持不变)
             if (input.startsWith('http')) {
-                document.getElementById('ai-title').innerText = "🔗 正在抓取网页...";
                 try {
                     const response = await fetch(`https://r.jina.ai/${input}`);
                     if (response.ok) input = await response.text();
-                } catch (e) { console.log("抓取受限，直接分析链接"); }
+                } catch (e) { console.log("抓取受限"); }
             }
-
-            const prompt = `你是一个知识内化教练。请将内容转为JSON(不带Markdown格式):{"summary":"核心摘要","question":"追问","full_note":"详细笔记","tags":["标签1","标签2"]} 内容:${input.substring(0, 20000)}`;
-
+        
+            const promptText = `你是一个知识内化教练。请将内容转为纯JSON格式(不要带Markdown外壳):{"summary":"核心摘要","question":"追问","full_note":"笔记","tags":["标签"]} 内容:${input.substring(0, 5000)}`;
+        
             try {
-                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
                 const res = await fetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                    body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] })
                 });
+        
                 const data = await res.json();
-                const aiResult = JSON.parse(data.candidates[0].content.parts[0].text.replace(/```json|```/g, ''));
-
+        
+                // 🔍 诊断逻辑：如果 Google 返回了错误
+                if (data.error) {
+                    console.error("API Error:", data.error);
+                    alert(`Google 拒绝了请求：\n错误类型: ${data.error.status}\n错误消息: ${data.error.message}`);
+                    document.getElementById('mill-modal').style.display = 'none';
+                    return;
+                }
+        
+                // 🔍 诊断逻辑：检查数据结构
+                if (!data.candidates || !data.candidates[0].content) {
+                    alert("API 响应格式异常，请检查控制台。内容：" + JSON.stringify(data));
+                    return;
+                }
+        
+                let rawText = data.candidates[0].content.parts[0].text;
+                // 清洗 Markdown 代码块
+                rawText = rawText.replace(/```json|```/g, '').trim();
+                
+                const aiResult = JSON.parse(rawText);
+        
                 document.getElementById('ai-title').innerText = "✅ 消化完成";
                 document.getElementById('ai-summary').innerText = aiResult.summary;
                 document.getElementById('ai-question').innerText = "🤔 思考：" + aiResult.question;
                 document.getElementById('recall-area').style.display = 'block';
                 window.currentData = aiResult;
+        
             } catch (e) {
-                alert("代谢出错: " + e.message);
+                alert("代谢彻底失败: " + e.message);
                 document.getElementById('mill-modal').style.display = 'none';
             }
         }

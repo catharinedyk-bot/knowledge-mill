@@ -228,7 +228,7 @@
                 } catch (e) { console.log("抓取受限，直接分析链接"); }
             }
 
-            const prompt = `你是一个知识内化教练。请将内容转为JSON(不带Markdown格式):{"summary":"核心摘要","question":"追问","full_note":"详细Markdown笔记(含背景、逻辑、金句、启发)","tags":["标签1","标签2"]} 内容:${input.substring(0, 15000)}`;
+            const prompt = `你是一个知识内化教练。请将内容转为JSON(不带Markdown格式):{"summary":"核心摘要","question":"追问","full_note":"详细笔记","tags":["标签1","标签2"]} 内容:${input.substring(0, 10000)}`;
 
             try {
                 const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;

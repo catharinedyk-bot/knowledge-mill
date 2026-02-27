@@ -170,4 +170,149 @@
 
     <div id="note-modal" class="modal" onclick="closeNote()">
         <div class="modal-card" onclick="event.stopPropagation()">
-            <span style="float: right; cursor: pointer; color: var(--sub); font-size: 28px; line-height
+            <span style="float: right; cursor: pointer; color: var(--sub); font-size: 28px; line-height: 20px;" onclick="closeNote()">&times;</span>
+            <div id="note-tags-display"></div>
+            <h2 id="note-title" style="margin: 10px 0;"></h2>
+            <p id="note-time" style="font-size: 12px; color: var(--sub); margin-bottom: 20px;"></p>
+            <div id="note-body" class="note-content"></div>
+            <div style="margin-top: 30px; padding: 20px; background: rgba(10, 132, 255, 0.05); border-left: 4px solid var(--accent); border-radius: 8px;">
+                <h4 style="margin: 0 0 10px 0; color: var(--accent);">💡 我的思考归档：</h4>
+                <p id="note-my-answer" style="margin: 0; font-style: italic; color: #ccc;"></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 1. 安全获取 Key
+        let GEMINI_API_KEY = localStorage.getItem('MY_MILL_KEY') || '';
+
+        function updateKey() {
+            const key = prompt("请输入 Gemini API Key (仅保存在本地存储):", GEMINI_API_KEY);
+            if (key !== null) {
+                GEMINI_API_KEY = key.trim();
+                localStorage.setItem('MY_MILL_KEY', GEMINI_API_KEY);
+                alert("Key 已更新！");
+            }
+        }
+
+        // 2. 页面加载初始化
+        window.onload = () => {
+            const savedData = localStorage.getItem('my_knowledge_vault');
+            if (savedData) JSON.parse(savedData).forEach(item => renderItem(item));
+            if (!GEMINI_API_KEY) setTimeout(() => alert("请先点击下方的『🔑 配置 API Key』"), 1000);
+            
+            // 注册 Service Worker (PWA)
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('./sw.js').catch(() => console.log("本地预览暂不支持SW"));
+            }
+        };
+
+        // 3. 核心代谢逻辑
+        async function startMetabolism() {
+            if (!GEMINI_API_KEY) { alert("请先配置 API Key"); return updateKey(); }
+            let input = document.getElementById('rawInput').value.trim();
+            if (!input) return;
+
+            // UI 状态重置
+            document.getElementById('mill-modal').style.display = 'flex';
+            document.getElementById('recall-area').style.display = 'none';
+            document.getElementById('ai-summary').innerText = "";
+            document.getElementById('ai-title').innerText = "🧠 正在思考...";
+
+            // 网页抓取判断 (Jina Reader)
+            if (input.startsWith('http')) {
+                document.getElementById('ai-title').innerText = "🔗 正在抓取网页...";
+                try {
+                    const response = await fetch(`https://r.jina.ai/${input}`);
+                    if (response.ok) input = await response.text();
+                } catch (e) { console.log("抓取受限，直接分析链接"); }
+            }
+
+            const prompt = `你是一个知识内化教练。请将内容转为JSON(不带Markdown格式):{"summary":"核心摘要","question":"追问","full_note":"详细Markdown笔记(含背景、逻辑、金句、启发)","tags":["标签1","标签2"]} 内容:${input.substring(0, 15000)}`;
+
+            try {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                });
+                const data = await res.json();
+                const aiResult = JSON.parse(data.candidates[0].content.parts[0].text.replace(/```json|```/g, ''));
+
+                document.getElementById('ai-title').innerText = "✅ 消化完成";
+                document.getElementById('ai-summary').innerText = aiResult.summary;
+                document.getElementById('ai-question').innerText = "🤔 思考：" + aiResult.question;
+                document.getElementById('recall-area').style.display = 'block';
+                window.currentData = aiResult;
+            } catch (e) {
+                alert("代谢出错: " + e.message);
+                document.getElementById('mill-modal').style.display = 'none';
+            }
+        }
+
+        // 4. 存储与渲染
+        function finishRecall() {
+            const answer = document.getElementById('answerInput').value;
+            if (!answer) return alert("请写下一句话再存入");
+
+            const newItem = {
+                id: Date.now(),
+                time: new Date().toLocaleString(),
+                ...window.currentData,
+                myAnswer: answer
+            };
+
+            const savedData = JSON.parse(localStorage.getItem('my_knowledge_vault') || '[]');
+            savedData.unshift(newItem);
+            localStorage.setItem('my_knowledge_vault', JSON.stringify(savedData));
+
+            renderItem(newItem, true);
+            document.getElementById('mill-modal').style.display = 'none';
+            document.getElementById('rawInput').value = '';
+            document.getElementById('answerInput').value = '';
+        }
+
+        function renderItem(item, isNew = false) {
+            const div = document.createElement('div');
+            div.className = 'bank-item';
+            div.id = `item-${item.id}`;
+            div.onclick = () => openNote(item);
+
+            const tagsHTML = (item.tags || []).map(t => `<span class="tag">${t}</span>`).join('');
+            div.innerHTML = `
+                <span class="delete-btn" onclick="deleteItem(event, ${item.id})">&times;</span>
+                <div style="margin-bottom: 8px;">${tagsHTML}</div>
+                <p style="font-weight:bold; margin:5px 0;">${item.summary}</p>
+                <p style="color:#666; font-size:12px;">📄 点击展开详情 · ${item.time}</p>
+            `;
+            const bank = document.getElementById('knowledge-bank');
+            if (isNew) bank.prepend(div); else bank.appendChild(div);
+        }
+
+        // 5. 详情查看与删除
+        function openNote(item) {
+            document.getElementById('note-title').innerText = item.summary;
+            document.getElementById('note-time').innerText = "归档时间：" + item.time;
+            document.getElementById('note-body').innerHTML = marked.parse(item.full_note || "");
+            document.getElementById('note-my-answer').innerText = item.myAnswer;
+            document.getElementById('note-tags-display').innerHTML = (item.tags || []).map(t => `<span class="tag">${t}</span>`).join('');
+            document.getElementById('note-modal').style.display = 'flex';
+        }
+
+        function closeNote() { document.getElementById('note-modal').style.display = 'none'; }
+
+        function deleteItem(event, id) {
+            event.stopPropagation();
+            if (!confirm("确定删除吗？")) return;
+            let data = JSON.parse(localStorage.getItem('my_knowledge_vault') || '[]');
+            data = data.filter(i => i.id !== id);
+            localStorage.setItem('my_knowledge_vault', JSON.stringify(data));
+            document.getElementById(`item-${id}`).remove();
+        }
+
+        function clearAllData() { if (confirm("确定清空吗？")) { localStorage.clear(); location.reload(); } }
+    </script>
+</body>
+
+</html>

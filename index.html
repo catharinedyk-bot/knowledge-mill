@@ -1,164 +1,173 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <meta charset="UTF-8">
     <title>知识磨坊 Pro</title>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icon.png">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-        :root { --bg: #000; --card: #1c1c1e; --accent: #0A84FF; --text: #fff; --sub: #8e8e93; }
-        body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; display: flex; height: 100vh; overflow: hidden; }
-        
-        #inbox { width: 300px; background: #121212; border-right: 1px solid #333; padding: 25px; display: flex; flex-direction: column; }
-        #workspace { flex: 1; padding: 40px; overflow-y: auto; }
-        textarea { width: 100%; height: 120px; border-radius: 12px; border: 1px solid #333; background: #2c2c2e; color: #fff; padding: 12px; margin-bottom: 15px; resize: none; }
-        button { background: var(--accent); color: white; border: none; padding: 12px; border-radius: 10px; font-weight: 600; cursor: pointer; }
-        
-        .bank-item { background: var(--card); border-radius: 16px; padding: 20px; margin-bottom: 15px; border: 1px solid #333; position: relative; }
-        .tag { display: inline-block; background: rgba(10, 132, 255, 0.2); color: var(--accent); padding: 4px 10px; border-radius: 6px; font-size: 11px; margin-right: 5px; }
-        
-        /* 弹窗样式 */
-        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); backdrop-filter: blur(15px); display: none; align-items: center; justify-content: center; z-index: 100; }
-        .modal-card { width: 600px; max-height: 85vh; background: #2c2c2e; border-radius: 20px; padding: 30px; overflow-y: auto; }
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
-        /* 响应式手机布局 */
+    <style>
+        :root {
+            --bg: #000;
+            --card: #1c1c1e;
+            --accent: #0A84FF;
+            --text: #fff;
+            --sub: #8e8e93;
+        }
+
+        body {
+            font-family: -apple-system, "SF Pro Text", sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+            flex-direction: row;
+        }
+
+        /* 响应式布局：手机端上下排列 */
         @media (max-width: 768px) {
             body { flex-direction: column; overflow-y: auto; }
-            #inbox { width: 100%; border-right: none; border-bottom: 1px solid #333; }
+            #inbox { width: 100% !important; border-right: none !important; border-bottom: 1px solid #333; height: auto !important; }
+            #workspace { padding: 20px !important; }
+            .modal-card { width: 92% !important; padding: 20px !important; }
         }
+
+        #inbox {
+            width: 300px;
+            background: #121212;
+            border-right: 1px solid #333;
+            padding: 25px;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+        }
+
+        #workspace {
+            flex: 1;
+            padding: 40px;
+            overflow-y: auto;
+        }
+
+        textarea {
+            width: 100%;
+            height: 120px;
+            border-radius: 12px;
+            border: 1px solid #333;
+            background: #2c2c2e;
+            color: #fff;
+            padding: 12px;
+            margin-bottom: 15px;
+            box-sizing: border-box;
+            font-size: 14px;
+            resize: none;
+            outline: none;
+        }
+
+        button {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        button:active { transform: scale(0.98); opacity: 0.8; }
+
+        .bank-item {
+            background: var(--card);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border: 1px solid #333;
+            cursor: pointer;
+            position: relative;
+            transition: 0.2s;
+        }
+
+        .bank-item:hover { border-color: var(--accent); }
+
+        .tag {
+            display: inline-block;
+            background: rgba(10, 132, 255, 0.15);
+            color: var(--accent);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            margin-right: 5px;
+            margin-bottom: 5px;
+        }
+
+        /* 弹窗样式 */
+        .modal {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(15px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+
+        .modal-card {
+            width: 600px;
+            max-height: 85vh;
+            background: #2c2c2e;
+            border-radius: 20px;
+            padding: 30px;
+            overflow-y: auto;
+            border: 1px solid #444;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+        }
+
+        .note-content { line-height: 1.6; color: #eee; }
+        .note-content h1, .note-content h2 { color: var(--accent); border-bottom: 1px solid #444; padding-bottom: 8px; }
+        
+        .delete-btn { position: absolute; right: 15px; top: 15px; color: #ff453a; font-size: 18px; opacity: 0.5; padding: 5px; }
     </style>
 </head>
+
 <body>
 
     <div id="inbox">
-        <h2 style="font-size: 20px;">📥 捕获</h2>
+        <h2 style="font-size: 20px; margin-top: 0;">📥 捕获</h2>
         <textarea id="rawInput" placeholder="在此粘贴长文本或网页链接..."></textarea>
         <button onclick="startMetabolism()">开始代谢</button>
 
         <div style="margin-top: auto; border-top: 1px solid #333; padding-top: 20px;">
-            <div style="font-size: 11px; color: var(--sub); margin-bottom: 8px;">CONFIG</div>
-            <button onclick="updateKey()" style="background: #333; width: 100%; font-size: 12px; margin-bottom: 10px;">配置 API Key</button>
-            <button onclick="clearAllData()" style="background: #ff453a; width: 100%; font-size: 12px; opacity: 0.6;">清空保险箱</button>
+            <div style="font-size: 11px; color: var(--sub); margin-bottom: 8px;">SETTING</div>
+            <button onclick="updateKey()" style="background: #333; width: 100%; font-size: 12px; margin-bottom: 10px;">🔑 配置 API Key</button>
+            <button onclick="clearAllData()" style="background: #410b0b; color: #ff453a; width: 100%; font-size: 12px;">🗑️ 清空保险箱</button>
         </div>
     </div>
 
     <div id="workspace">
-        <h2 id="vault-title">🧠 知识保险箱</h2>
+        <h2 style="font-size: 20px; margin-top: 0;">🧠 知识保险箱</h2>
         <div id="knowledge-bank"></div>
     </div>
 
     <div id="mill-modal" class="modal">
         <div class="modal-card">
-            <h3 id="ai-title">正在准备...</h3>
-            <p id="ai-summary" style="color:#bbb;"></p>
-            <div id="recall-area" style="display:none;">
-                <p id="ai-question" style="color:var(--accent); font-weight:bold;"></p>
-                <input type="text" id="answerInput" placeholder="写下你的第一反应..." style="width:100%; padding:12px; background:#1c1c1e; border:1px solid #444; color:white; border-radius:8px;">
-                <button onclick="finishRecall()" style="width:100%; margin-top:15px;">存入保险箱</button>
+            <h3 id="ai-title" style="margin-top: 0;">正在代谢...</h3>
+            <p id="ai-summary" style="color:#bbb; font-size: 14px; line-height: 1.5;"></p>
+            <div id="recall-area" style="display:none; margin-top:20px; border-top:1px solid #444; padding-top:20px;">
+                <p id="ai-question" style="color:var(--accent); font-weight:bold; margin-bottom: 15px;"></p>
+                <input type="text" id="answerInput" placeholder="写下你的理解..." style="width:100%; padding:12px; background:#1c1c1e; border:1px solid #444; color:white; border-radius:8px; outline:none; margin-bottom: 15px;">
+                <button onclick="finishRecall()" style="width:100%;">存入保险箱</button>
             </div>
         </div>
     </div>
 
-    <script>
-        // --- 获取本地存储的 Key ---
-        let GEMINI_API_KEY = localStorage.getItem('MY_MILL_KEY') || '';
-
-        function getApiUrl() {
-            return `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-        }
-
-        function updateKey() {
-            const newKey = prompt("请输入您的 Gemini API Key:", GEMINI_API_KEY);
-            if (newKey) {
-                GEMINI_API_KEY = newKey.trim();
-                localStorage.setItem('MY_MILL_KEY', GEMINI_API_KEY);
-                alert("Key 已保存至本地");
-            }
-        }
-
-        window.onload = () => {
-            const savedData = localStorage.getItem('my_knowledge_vault');
-            if (savedData) JSON.parse(savedData).forEach(item => renderItem(item));
-            if (!GEMINI_API_KEY) setTimeout(() => alert("请先点击下方的『配置 API Key』"), 1000);
-        };
-
-        // --- 核心代谢逻辑 ---
-        async function startMetabolism() {
-            if (!GEMINI_API_KEY) {
-                alert("请先设置 API Key");
-                updateKey();
-                return;
-            }
-
-            let input = document.getElementById('rawInput').value.trim();
-            if (!input) return;
-
-            // 开启弹窗
-            document.getElementById('mill-modal').style.display = 'flex';
-            document.getElementById('ai-title').innerText = "🧠 正在消化...";
-            document.getElementById('recall-area').style.display = 'none';
-
-            // 网页抓取逻辑
-            if (input.startsWith('http')) {
-                document.getElementById('ai-title').innerText = "🔗 正在抓取网页...";
-                try {
-                    const res = await fetch(`https://r.jina.ai/${input}`);
-                    if (res.ok) input = await res.text();
-                } catch (e) { console.log("抓取受限"); }
-            }
-
-            const promptText = `请将以下内容转为JSON:{"summary":"一句话概括","question":"一个追问","full_note":"笔记","tags":["标签"]} 内容:${input.substring(0,10000)}`;
-
-            try {
-                const response = await fetch(getApiUrl(), {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] })
-                });
-
-                const data = await response.json();
-                const aiResult = JSON.parse(data.candidates[0].content.parts[0].text.replace(/```json|```/g, ''));
-
-                document.getElementById('ai-title').innerText = "✅ 代谢完成";
-                document.getElementById('ai-summary').innerText = aiResult.summary;
-                document.getElementById('ai-question').innerText = "🤔 思考：" + aiResult.question;
-                document.getElementById('recall-area').style.display = 'block';
-                window.currentData = aiResult;
-
-            } catch (e) {
-                alert("代谢失败，请检查网络或 Key。错误信息：" + e.message);
-                document.getElementById('mill-modal').style.display = 'none';
-            }
-        }
-
-        // --- 存储与渲染逻辑 (简略版，保持原有逻辑) ---
-        function finishRecall() {
-            const newItem = {
-                id: Date.now(),
-                time: new Date().toLocaleString(),
-                summary: window.currentData.summary,
-                full_note: window.currentData.full_note,
-                tags: window.currentData.tags,
-                myAnswer: document.getElementById('answerInput').value
-            };
-            const savedData = JSON.parse(localStorage.getItem('my_knowledge_vault') || '[]');
-            savedData.unshift(newItem);
-            localStorage.setItem('my_knowledge_vault', JSON.stringify(savedData));
-            renderItem(newItem, true);
-            document.getElementById('mill-modal').style.display = 'none';
-        }
-
-        function renderItem(item, isNew = false) {
-            const div = document.createElement('div');
-            div.className = 'bank-item';
-            div.innerHTML = `<small>${item.time}</small><div>${item.tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div><p><b>${item.summary}</b></p>`;
-            const bank = document.getElementById('knowledge-bank');
-            if (isNew) bank.prepend(div); else bank.appendChild(div);
-        }
-
-        function clearAllData() { if(confirm("确定清空吗？")) { localStorage.removeItem('my_knowledge_vault'); location.reload(); } }
-    </script>
-</body>
-</html>
+    <div id="note-modal" class="modal" onclick="closeNote()">
+        <div class="modal-card" onclick="event.stopPropagation()">
+            <span style="float: right; cursor: pointer; color: var(--sub); font-size: 28px; line-height

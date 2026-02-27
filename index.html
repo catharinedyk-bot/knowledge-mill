@@ -290,7 +290,8 @@
 
                 window.currentData = { ...aiResult };
             } catch (e) {
-                alert("代谢失败，请检查网络或配置");
+                // 这样弹窗会显示具体的错误代码，方便我们排查
+                alert("代谢失败原因: " + e.message); 
                 document.getElementById('mill-modal').style.display = 'none';
             }
         }

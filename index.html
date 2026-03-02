@@ -3,38 +3,45 @@
 <head>
     <meta charset="UTF-8">
     <title>知识磨坊</title>
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.23.0/cytoscape.min.js"></script>
     <style>
-        :root { --bg: #000; --card: #1c1c1e; --accent: #0A84FF; --text: #fff; --sub: #8e8e93; }
-        body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        :root { --bg: #000; --card: #1c1c1e; --accent: #0A84FF; --text: #fff; --sub: #8e8e93; --orange: #ff9500; }
+        * { box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg); color: var(--text); margin: 0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
         
-        /* 导航栏 */
-        #nav-bar { display: flex; background: #121212; border-top: 1px solid #333; height: 60px; justify-content: space-around; align-items: center; order: 3; }
-        .nav-item { color: var(--sub); font-size: 12px; cursor: pointer; text-align: center; }
-        .nav-item.active { color: var(--accent); font-weight: bold; }
-
-        /* 主体内容区 */
-        #main-container { flex: 1; display: flex; overflow: hidden; order: 2; }
-        #inbox { width: 320px; background: #121212; border-right: 1px solid #333; padding: 25px; display: flex; flex-direction: column; }
-        #view-vault { flex: 1; padding: 20px; overflow-y: auto; display: block; }
-        #view-map { flex: 1; display: none; position: relative; background: #050505; }
+        /* 顶部/侧边输入区 */
+        #inbox { width: 320px; background: #121212; border-right: 1px solid #333; padding: 20px; display: flex; flex-direction: column; flex-shrink: 0; }
+        textarea { width: 100%; height: 160px; border-radius: 12px; border: 1px solid #333; background: #2c2c2e; color: #fff; padding: 12px; margin-bottom: 12px; resize: none; font-size: 14px; outline: none; }
+        button { background: var(--accent); color: white; border: none; padding: 14px; border-radius: 10px; font-weight: 600; cursor: pointer; transition: 0.2s; width: 100%; }
+        button:active { transform: scale(0.98); }
+        
+        /* 内容展示区 */
+        #main-container { flex: 1; display: flex; overflow: hidden; }
+        #view-vault { flex: 1; padding: 25px; overflow-y: auto; display: block; }
+        #view-map { flex: 1; display: none; position: relative; background: #080808; }
         #cy { width: 100%; height: 100%; }
 
-        /* 通用样式 */
-        textarea { width: 100%; height: 150px; border-radius: 12px; border: 1px solid #333; background: #2c2c2e; color: #fff; padding: 12px; margin-bottom: 10px; resize: none; outline: none; }
-        button { background: var(--accent); color: white; border: none; padding: 12px; border-radius: 10px; font-weight: 600; cursor: pointer; }
-        .bank-item { background: var(--card); border-radius: 12px; padding: 15px; margin-bottom: 12px; border: 1px solid #333; cursor: pointer; }
-        .tag { display: inline-block; background: rgba(10, 132, 255, 0.15); color: var(--accent); padding: 3px 8px; border-radius: 4px; font-size: 10px; margin-right: 4px; }
-        
-        .modal { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); display:none; align-items:center; justify-content:center; z-index:1000; }
-        .modal-card { width: 90%; max-width: 600px; background: #2c2c2e; border-radius: 20px; padding: 25px; max-height: 80vh; overflow-y: auto; }
-        .note-content { line-height: 1.6; color: #eee; }
+        /* 卡片样式 */
+        .bank-item { background: var(--card); border-radius: 14px; padding: 18px; margin-bottom: 15px; border: 1px solid #333; cursor: pointer; position: relative; }
+        .tag { display: inline-block; background: rgba(10, 132, 255, 0.1); color: var(--accent); padding: 4px 10px; border-radius: 6px; font-size: 11px; margin-right: 6px; margin-bottom: 6px; }
+        .delete-btn { position: absolute; right: 12px; top: 12px; color: #ff453a; opacity: 0.4; font-size: 20px; }
+
+        /* 弹窗样式 */
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); backdrop-filter: blur(10px); display: none; align-items: center; justify-content: center; z-index: 1000; }
+        .modal-card { width: 90%; max-width: 650px; background: #2c2c2e; border-radius: 20px; padding: 30px; max-height: 85vh; overflow-y: auto; border: 1px solid #444; }
+        .note-content { line-height: 1.7; color: #ddd; }
+        .note-content h1, .note-content h2 { color: var(--accent); border-bottom: 1px solid #444; padding-bottom: 5px; }
+
+        /* 底部导航 */
+        #nav-bar { height: 70px; background: #121212; border-top: 1px solid #333; display: flex; justify-content: space-around; align-items: center; padding-bottom: env(safe-area-inset-bottom); }
+        .nav-item { color: var(--sub); font-size: 12px; cursor: pointer; text-align: center; flex: 1; }
+        .nav-item.active { color: var(--accent); font-weight: bold; }
 
         @media (max-width: 768px) {
-            #inbox { display: none; } /* 手机端隐藏侧边栏，通过按钮呼出或合并 */
-            #main-container { flex-direction: column; }
+            #inbox { display: none; }
+            .modal-card { width: 95%; padding: 20px; }
         }
     </style>
 </head>
@@ -42,64 +49,159 @@
 
     <div id="main-container">
         <div id="inbox">
-            <h3 style="margin-top:0;">📝 知识下达</h3>
-            <textarea id="rawInput" placeholder="输入诉求或粘贴内容..."></textarea>
-            <button onclick="startMetabolism()">生成笔记</button>
+            <h2 style="margin-top:0;">📝 知识下达</h2>
+            <textarea id="rawInput" placeholder="输入诉求（如：帮我整理万历年间大事记）或粘贴链接..."></textarea>
+            <button onclick="startMetabolism()">生成并存入</button>
+            
             <div style="margin-top: auto;">
-                <button onclick="updateKey()" style="background:#333; width:100%; font-size:11px;">🔑 配置 Key</button>
+                <button onclick="updateKey()" style="background:#333; font-size:12px; margin-bottom:8px;">🔑 配置 Key</button>
+                <button onclick="clearAllData()" style="background:#410b0b; color:#ff453a; font-size:12px;">🗑️ 清空数据</button>
             </div>
         </div>
 
         <div id="view-vault">
-            <h2 style="margin-top:0;">🧠 知识保险箱</h2>
+            <h2 id="vault-title" style="margin-top:0;">🧠 知识保险箱</h2>
+            <div id="mobile-input-trigger" style="display:none; margin-bottom:20px;">
+                <button onclick="showMobileInput()">+ 新增知识诉求</button>
+            </div>
             <div id="knowledge-bank"></div>
         </div>
 
         <div id="view-map">
             <div id="cy"></div>
-            <div style="position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.6); padding: 8px; border-radius: 8px; pointer-events: none; font-size: 12px;">
-                💡 提示：相同标签的笔记会自动连线
+            <div style="position: absolute; top: 15px; left: 15px; background: rgba(0,0,0,0.7); padding: 10px; border-radius: 8px; font-size: 12px; color: #aaa; pointer-events:none; border:1px solid #333;">
+                🟠 橙色：知识主题 (点击可融会贯通)<br>
+                🔵 蓝色：笔记卡片 (点击查看详情)
             </div>
         </div>
     </div>
 
     <div id="nav-bar">
-        <div class="nav-item active" id="btn-vault" onclick="switchView('vault')">🗄️ 保险箱</div>
-        <div class="nav-item" id="btn-map" onclick="switchView('map')">🕸️ 知识脉络</div>
+        <div class="nav-item active" id="btn-vault" onclick="switchView('vault')">
+            <div style="font-size:20px;">🗄️</div><div>列表</div>
+        </div>
+        <div class="nav-item" id="btn-map" onclick="switchView('map')">
+            <div style="font-size:20px;">🕸️</div><div>脉络</div>
+        </div>
+    </div>
+
+    <div id="mill-modal" class="modal">
+        <div class="modal-card" style="text-align:center;">
+            <h3 id="ai-status">🧠 正在翻阅资料...</h3>
+            <p id="ai-log" style="color:var(--sub); font-size:14px;">正在为您构建深度笔记，请稍候</p>
+        </div>
     </div>
 
     <div id="note-modal" class="modal" onclick="closeNote()">
         <div class="modal-card" onclick="event.stopPropagation()">
-            <h2 id="note-title" style="margin-top:0;"></h2>
+            <span style="float:right; cursor:pointer; font-size:24px; color:var(--sub)" onclick="closeNote()">&times;</span>
             <div id="note-tags-display"></div>
+            <h2 id="note-title" style="margin:15px 0;"></h2>
             <div id="note-body" class="note-content"></div>
-            <button id="synthesis-btn" style="margin-top:20px; width:100%; display:none; background:#ff9500;" onclick="startSynthesis()">✨ 融会贯通（生成综述）</button>
+            <button id="synthesis-btn" style="margin-top:20px; background:var(--orange); display:none;" onclick="startSynthesis()">✨ 融会贯通：生成该主题综述</button>
         </div>
     </div>
 
     <script>
         let API_KEY = localStorage.getItem('MY_MILL_KEY') || '';
-        let currentSynthesisTag = ""; // 用于追踪当前要融会贯通的标签
+        let currentSynthesisTag = "";
+        let cy;
 
+        // --- 初始化与 Key 管理 ---
         function updateKey() {
             const key = prompt("请输入 DeepSeek API Key:", API_KEY);
-            if(key) { API_KEY = key.trim(); localStorage.setItem('MY_MILL_KEY', API_KEY); }
+            if (key !== null) {
+                API_KEY = key.trim();
+                localStorage.setItem('MY_MILL_KEY', API_KEY);
+                alert("Key 已保存！");
+            }
         }
 
         window.onload = () => {
+            if (window.innerWidth < 768) document.getElementById('mobile-input-trigger').style.display = 'block';
             refreshVault();
             initMap();
         };
 
-        // 视图切换
+        // --- 视图切换 ---
         function switchView(view) {
             document.getElementById('view-vault').style.display = view === 'vault' ? 'block' : 'none';
             document.getElementById('view-map').style.display = view === 'map' ? 'block' : 'none';
             document.getElementById('btn-vault').classList.toggle('active', view === 'vault');
             document.getElementById('btn-map').classList.toggle('active', view === 'map');
-            if(view === 'map') refreshMap();
+            if (view === 'map') refreshMap();
         }
 
+        function showMobileInput() {
+            const val = prompt("请输入您的知识诉求：");
+            if (val) {
+                document.getElementById('rawInput').value = val;
+                startMetabolism();
+            }
+        }
+
+        // --- 核心代谢逻辑 ---
+        async function startMetabolism() {
+            if (!API_KEY) return updateKey();
+            let input = document.getElementById('rawInput').value.trim();
+            if (!input) return;
+
+            document.getElementById('mill-modal').style.display = 'flex';
+            
+            // 链接抓取
+            if (input.startsWith('http')) {
+                try {
+                    const res = await fetch(`https://r.jina.ai/${input}`);
+                    if (res.ok) input = await res.text();
+                } catch (e) { console.log("Jina 抓取失败"); }
+            }
+
+            const promptText = `你是一个博学、擅长总结的知识专家。
+            如果输入是指令，请撰写深度笔记。如果输入是文章，请深度整理。
+            请严格输出JSON格式，不要包含任何Markdown代码块外壳：
+            {
+              "summary": "核心标题/摘要",
+              "full_note": "Markdown格式笔记：包含背景、核心逻辑、影响、复习要点。不要太简略。有趣味性。",
+              "tags": ["领域", "核心词"]
+            }`;
+
+            try {
+                const res = await fetch("https://api.deepseek.com/chat/completions", {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${API_KEY}` },
+                    body: JSON.stringify({
+                        model: "deepseek-chat",
+                        messages: [
+                            { role: "system", content: "你是一个只输出JSON的百科全书助手。" },
+                            { role: "user", content: promptText + "\n\n内容：" + input.substring(0, 10000) }
+                        ],
+                        response_format: { 'type': 'json_object' }
+                    })
+                });
+
+                const data = await res.json();
+                if (data.error) throw new Error(data.error.message);
+                
+                const result = JSON.parse(data.choices[0].message.content.replace(/```json|```/g, ''));
+                
+                // 存入保险箱
+                const newItem = { id: Date.now(), time: new Date().toLocaleString(), ...result };
+                const savedData = JSON.parse(localStorage.getItem('my_knowledge_vault') || '[]');
+                savedData.unshift(newItem);
+                localStorage.setItem('my_knowledge_vault', JSON.stringify(savedData));
+                
+                document.getElementById('mill-modal').style.display = 'none';
+                document.getElementById('rawInput').value = "";
+                refreshVault();
+                alert("知识已存入保险箱！");
+
+            } catch (e) {
+                alert("生成失败: " + e.message);
+                document.getElementById('mill-modal').style.display = 'none';
+            }
+        }
+
+        // --- 列表渲染 ---
         function refreshVault() {
             const bank = document.getElementById('knowledge-bank');
             bank.innerHTML = "";
@@ -108,31 +210,32 @@
                 const div = document.createElement('div');
                 div.className = 'bank-item';
                 div.onclick = () => openNote(item);
-                div.innerHTML = `<div class="tags">${(item.tags||[]).map(t=>`<span class="tag">${t}</span>`).join('')}</div><div style="font-weight:bold; margin-top:5px;">${item.summary}</div>`;
+                div.innerHTML = `
+                    <span class="delete-btn" onclick="deleteItem(event, ${item.id})">&times;</span>
+                    <div>${(item.tags || []).map(t => `<span class="tag">${t}</span>`).join('')}</div>
+                    <div style="font-weight:bold; margin-top:8px;">${item.summary}</div>
+                    <div style="font-size:11px; color:var(--sub); margin-top:8px;">${item.time}</div>
+                `;
                 bank.appendChild(div);
             });
         }
 
-        // --- 脉络图逻辑 ---
-        let cy;
+        // --- 脉络图逻辑 (Cytoscape) ---
         function initMap() {
             cy = cytoscape({
                 container: document.getElementById('cy'),
                 style: [
-                    { selector: 'node', style: { 'background-color': '#0A84FF', 'label': 'data(label)', 'color': '#fff', 'font-size': '10px', 'text-valign': 'center', 'width': '40px', 'height': '40px' }},
-                    { selector: 'node[type="tag"]', style: { 'background-color': '#ff9500', 'width': '50px', 'height': '50px', 'font-size': '12px' }},
-                    { selector: 'edge', style: { 'width': 2, 'line-color': '#333', 'curve-style': 'bezier' }}
+                    { selector: 'node', style: { 'label': 'data(label)', 'color': '#fff', 'font-size': '10px', 'text-valign': 'center', 'text-halign': 'center', 'background-color': '#0A84FF', 'width': '30px', 'height': '30px', 'text-wrap': 'wrap', 'text-max-width': '80px' }},
+                    { selector: 'node[type="tag"]', style: { 'background-color': '#ff9500', 'width': '45px', 'height': '45px', 'font-size': '11px', 'font-weight': 'bold' }},
+                    { selector: 'edge', style: { 'width': 1.5, 'line-color': '#333', 'curve-style': 'haystack' }}
                 ],
-                layout: { name: 'cose', animate: true }
+                layout: { name: 'cose', padding: 30 }
             });
 
             cy.on('tap', 'node', function(evt){
                 const node = evt.target;
-                if(node.data('type') === 'note') {
-                    openNote(node.data('raw'));
-                } else if(node.data('type') === 'tag') {
-                    showTagSynthesisOption(node.data('label'));
-                }
+                if (node.data('type') === 'note') openNote(node.data('raw'));
+                else if (node.data('type') === 'tag') showTagSynthesisOption(node.data('label'));
             });
         }
 
@@ -143,11 +246,9 @@
             let tagsFound = new Set();
 
             data.forEach(note => {
-                // 添加笔记节点
-                elements.push({ data: { id: 'n' + note.id, label: note.summary.substring(0,10)+'...', type: 'note', raw: note } });
-                // 添加标签节点并连线
+                elements.push({ data: { id: 'n' + note.id, label: note.summary.substring(0,8), type: 'note', raw: note } });
                 (note.tags || []).forEach(tag => {
-                    if(!tagsFound.has(tag)) {
+                    if (!tagsFound.has(tag)) {
                         elements.push({ data: { id: 't' + tag, label: tag, type: 'tag' } });
                         tagsFound.add(tag);
                     }
@@ -155,82 +256,26 @@
                 });
             });
             cy.add(elements);
-            cy.layout({ name: 'cose', padding: 50 }).run();
-        }
-
-        // --- 代谢与生成逻辑 ---
-        async function startMetabolism() {
-            if (!API_KEY) return updateKey();
-            let input = document.getElementById('rawInput').value.trim();
-            if (!input) return;
-
-            document.getElementById('mill-modal').style.display = 'flex';
-            document.getElementById('save-btn').style.display = 'none';
-            document.getElementById('ai-title').innerText = "🧠 正在构建知识体系...";
-            document.getElementById('ai-summary').innerText = "请稍候，正在为您翻阅资料并整理...";
-            document.getElementById('ai-full-preview').innerHTML = "";
-
-            if (input.startsWith('http')) {
-                try {
-                    const res = await fetch(`https://r.jina.ai/${input}`);
-                    if (res.ok) input = await res.text();
-                } catch (e) { console.log("抓取失败"); }
-            }
-
-            const promptText = `你是一个博学且擅长教学的专家。
-            如果用户输入的是一个主题指令，请基于你的知识储备撰写。
-            如果用户输入的是长文内容，请进行深度整理。
-            输出纯JSON格式:
-            {
-              "summary": "一句话核心定义/描述",
-              "full_note": "详尽的Markdown格式笔记，按逻辑推进内容，不要过于简略，保持深度，保持阅读趣味性。",
-              "tags": ["领域", "核心词"]
-            }
-            用户诉求/内容: ${input.substring(0, 15000)}`;
-
-            try {
-                const res = await fetch("https://api.deepseek.com/chat/completions", {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${API_KEY}` },
-                    body: JSON.stringify({
-                        model: "deepseek-chat",
-                        messages: [{ role: "system", content: "你是一个只输出JSON的百科全书助手。" }, { role: "user", content: promptText }],
-                        response_format: { 'type': 'json_object' }
-                    })
-                });
-
-                const data = await res.json();
-                const result = JSON.parse(data.choices[0].message.content.replace(/```json|```/g, ''));
-
-                document.getElementById('ai-title').innerText = "✅ 知识已就绪";
-                document.getElementById('ai-summary').innerText = result.summary;
-                document.getElementById('ai-full-preview').innerHTML = marked.parse(result.full_note);
-                document.getElementById('save-btn').style.display = 'block';
-                window.currentData = result;
-
-            } catch (e) {
-                alert("生成失败: " + e.message);
-                document.getElementById('mill-modal').style.display = 'none';
-            }
+            cy.layout({ name: 'cose', animate: true, nodeRepulsion: 4000 }).run();
         }
 
         // --- 融会贯通逻辑 ---
         function showTagSynthesisOption(tag) {
             currentSynthesisTag = tag;
-            document.getElementById('note-title').innerText = `主题板块：${tag}`;
-            document.getElementById('note-body').innerHTML = `<p>这个板块下共有多篇笔记。点击下方按钮，AI将整合所有内容，为你生成一份贯通后的深度综述。</p>`;
+            document.getElementById('note-title').innerText = `主题：${tag}`;
+            document.getElementById('note-body').innerHTML = `<p style='color:var(--orange)'>已发现多篇相关笔记。点击下方按钮，AI 将为您生成融会贯通后的知识综述。</p>`;
             document.getElementById('note-tags-display').innerHTML = "";
             document.getElementById('synthesis-btn').style.display = 'block';
             document.getElementById('note-modal').style.display = 'flex';
         }
 
         async function startSynthesis() {
-            document.getElementById('note-body').innerHTML = "✨ 正在融合知识，请稍候...";
-            const data = JSON.parse(localStorage.getItem('my_knowledge_vault') || '[]');
-            const relevantNotes = data.filter(n => n.tags.includes(currentSynthesisTag));
+            document.getElementById('synthesis-btn').style.display = 'none';
+            document.getElementById('note-body').innerHTML = "✨ 正在深度融合知识点，请稍候...";
             
-            const context = relevantNotes.map(n => n.full_note).join("\n---\n");
-            const prompt = `你是一个知识架构师。以下是关于“${currentSynthesisTag}”的几篇笔记内容。请将它们融会贯通，写出一篇深度的综述，指出这些知识点之间的内在联系、演变逻辑或共同规律。内容要详尽且成体系。内容如下：\n${context}`;
+            const data = JSON.parse(localStorage.getItem('my_knowledge_vault') || '[]');
+            const relevant = data.filter(n => n.tags.includes(currentSynthesisTag));
+            const context = relevant.map(n => n.full_note).join("\n---\n");
 
             try {
                 const res = await fetch("https://api.deepseek.com/chat/completions", {
@@ -238,16 +283,15 @@
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${API_KEY}` },
                     body: JSON.stringify({
                         model: "deepseek-chat",
-                        messages: [{role: "user", content: prompt}]
+                        messages: [{ role: "user", content: `请将以下关于“${currentSynthesisTag}”的多篇笔记融会贯通，写出一篇深度的、逻辑严密的综述，指出它们之间的联系和核心规律：\n\n${context}` }]
                     })
                 });
-                const result = await res.json();
-                const text = result.choices[0].message.content;
-                document.getElementById('note-body').innerHTML = marked.parse(text);
-                document.getElementById('synthesis-btn').style.display = 'none';
-            } catch(e) { alert("融会贯通失败"); }
+                const json = await res.json();
+                document.getElementById('note-body').innerHTML = marked.parse(json.choices[0].message.content);
+            } catch (e) { alert("融合失败"); }
         }
 
+        // --- 弹窗与删除 ---
         function openNote(item) {
             document.getElementById('note-title').innerText = item.summary;
             document.getElementById('note-body').innerHTML = marked.parse(item.full_note);
@@ -256,6 +300,17 @@
             document.getElementById('note-modal').style.display = 'flex';
         }
         function closeNote() { document.getElementById('note-modal').style.display = 'none'; }
+        
+        function deleteItem(e, id) {
+            e.stopPropagation();
+            if (confirm("确定要删除这条笔记吗？")) {
+                let data = JSON.parse(localStorage.getItem('my_knowledge_vault') || '[]');
+                data = data.filter(i => i.id !== id);
+                localStorage.setItem('my_knowledge_vault', JSON.stringify(data));
+                refreshVault();
+            }
+        }
+        function clearAllData() { if(confirm("确定清空所有笔记吗？")) { localStorage.removeItem('my_knowledge_vault'); refreshVault(); } }
     </script>
 </body>
 </html>

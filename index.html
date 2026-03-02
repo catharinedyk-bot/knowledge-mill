@@ -183,40 +183,53 @@
     </div>
 
     <script>
-        // 1. 安全获取 Key
-        let GEMINI_API_KEY = localStorage.getItem('MY_MILL_KEY') || '';
+        // 1. 安全获取 Key (变量名改为通用的 API_KEY)
+        let API_KEY = localStorage.getItem('MY_MILL_KEY') || '';
 
         function updateKey() {
-            const key = prompt("请输入 Gemini API Key (仅保存在本地存储):", GEMINI_API_KEY);
+            const key = prompt("请输入 DeepSeek API Key (仅保存在本地存储):", API_KEY);
             if (key !== null) {
-                GEMINI_API_KEY = key.trim();
-                localStorage.setItem('MY_MILL_KEY', GEMINI_API_KEY);
-                alert("Key 已更新！");
+                API_KEY = key.trim();
+                localStorage.setItem('MY_MILL_KEY', API_KEY);
+                alert("DeepSeek Key 已更新！");
             }
         }
 
         // 2. 页面加载初始化
         window.onload = () => {
             const savedData = localStorage.getItem('my_knowledge_vault');
-            if (savedData) JSON.parse(savedData).forEach(item => renderItem(item));
-            if (!GEMINI_API_KEY) setTimeout(() => alert("请先点击下方的『🔑 配置 API Key』"), 1000);
+            if (savedData) {
+                try {
+                    JSON.parse(savedData).forEach(item => renderItem(item));
+                } catch(e) { console.error("数据解析失败"); }
+            }
+            
+            // 如果没有 Key，弹出提示
+            if (!API_KEY) {
+                setTimeout(() => alert("欢迎使用知识磨坊！请先点击下方的『🔑 配置 API Key』并填入您的 DeepSeek Key。"), 1000);
+            }
             
             // 注册 Service Worker (PWA)
             if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('./sw.js').catch(() => console.log("本地预览暂不支持SW"));
+                navigator.serviceWorker.register('./sw.js')
+                    .then(() => console.log("PWA 就绪"))
+                    .catch(() => console.log("本地预览暂不支持SW"));
             }
         };
 
         async function startMetabolism() {
-            if (!GEMINI_API_KEY) { alert("请先配置 API Key"); return updateKey(); }
+            // 1. 检查 Key（这里的 localStorage 变量名可以保持不变）
+            let API_KEY = localStorage.getItem('MY_MILL_KEY') || '';
+            if (!API_KEY) { alert("请先配置 DeepSeek API Key"); return updateKey(); }
+        
             let input = document.getElementById('rawInput').value.trim();
             if (!input) return;
         
             document.getElementById('mill-modal').style.display = 'flex';
             document.getElementById('recall-area').style.display = 'none';
-            document.getElementById('ai-title').innerText = "🧠 正在思考...";
+            document.getElementById('ai-title').innerText = "🧠 DeepSeek 正在思考...";
         
-            // 网页抓取部分 (保持不变)
+            // 2. 网页抓取 (保持不变)
             if (input.startsWith('http')) {
                 try {
                     const response = await fetch(`https://r.jina.ai/${input}`);
@@ -224,50 +237,50 @@
                 } catch (e) { console.log("抓取受限"); }
             }
         
-            const promptText = `你是一个知识内化教练。请将内容转为纯JSON格式(不要带Markdown外壳):{"summary":"核心摘要","question":"追问","full_note":"笔记","tags":["标签"]} 内容:${input.substring(0, 5000)}`;
+            // 3. 构建 Prompt
+            const promptText = `你是一个知识内化教练。请将内容转为纯JSON格式(不要带Markdown外壳):{"summary":"核心摘要","question":"追问","full_note":"Markdown笔记","tags":["标签"]} 内容:${input.substring(0, 8000)}`;
         
             try {
-                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
-                const res = await fetch(url, {
+                // 4. 发起 DeepSeek 请求
+                const res = await fetch("https://api.deepseek.com/chat/completions", {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] })
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${API_KEY}` // 注意这里加了 Bearer
+                    },
+                    body: JSON.stringify({
+                        model: "deepseek-chat", // 使用 deepseek-chat 模型
+                        messages: [
+                            { role: "system", content: "你是一个只输出 JSON 的助手。" },
+                            { role: "user", content: promptText }
+                        ],
+                        response_format: { 'type': 'json_object' } // 强制输出 JSON
+                    })
                 });
         
                 const data = await res.json();
         
-                // 🔍 诊断逻辑：如果 Google 返回了错误
                 if (data.error) {
-                    console.error("API Error:", data.error);
-                    alert(`Google 拒绝了请求：\n错误类型: ${data.error.status}\n错误消息: ${data.error.message}`);
-                    document.getElementById('mill-modal').style.display = 'none';
-                    return;
+                    throw new Error(data.error.message);
                 }
         
-                // 🔍 诊断逻辑：检查数据结构
-                if (!data.candidates || !data.candidates[0].content) {
-                    alert("API 响应格式异常，请检查控制台。内容：" + JSON.stringify(data));
-                    return;
-                }
-        
-                let rawText = data.candidates[0].content.parts[0].text;
-                // 清洗 Markdown 代码块
+                // 5. 解析回答 (DeepSeek 的路径是 choices[0].message.content)
+                let rawText = data.choices[0].message.content;
                 rawText = rawText.replace(/```json|```/g, '').trim();
                 
                 const aiResult = JSON.parse(rawText);
         
-                document.getElementById('ai-title').innerText = "✅ 消化完成";
+                document.getElementById('ai-title').innerText = "✅ 代谢完成";
                 document.getElementById('ai-summary').innerText = aiResult.summary;
                 document.getElementById('ai-question').innerText = "🤔 思考：" + aiResult.question;
                 document.getElementById('recall-area').style.display = 'block';
                 window.currentData = aiResult;
         
             } catch (e) {
-                alert("代谢彻底失败: " + e.message);
+                alert("DeepSeek 代谢失败: " + e.message);
                 document.getElementById('mill-modal').style.display = 'none';
             }
         }
-
         // 4. 存储与渲染
         function finishRecall() {
             const answer = document.getElementById('answerInput').value;

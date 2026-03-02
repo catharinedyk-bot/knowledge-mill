@@ -4,88 +4,161 @@
     <meta charset="UTF-8">
     <title>知识磨坊</title>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <link rel="manifest" href="manifest.json">
-    <link rel="apple-touch-icon" href="icon.png">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.23.0/cytoscape.min.js"></script>
     <style>
         :root { --bg: #000; --card: #1c1c1e; --accent: #0A84FF; --text: #fff; --sub: #8e8e93; }
-        body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; display: flex; height: 100vh; overflow: hidden; }
+        body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
         
-        #inbox { width: 320px; background: #121212; border-right: 1px solid #333; padding: 25px; display: flex; flex-direction: column; flex-shrink: 0; }
-        #workspace { flex: 1; padding: 40px; overflow-y: auto; }
+        /* 导航栏 */
+        #nav-bar { display: flex; background: #121212; border-top: 1px solid #333; height: 60px; justify-content: space-around; align-items: center; order: 3; }
+        .nav-item { color: var(--sub); font-size: 12px; cursor: pointer; text-align: center; }
+        .nav-item.active { color: var(--accent); font-weight: bold; }
+
+        /* 主体内容区 */
+        #main-container { flex: 1; display: flex; overflow: hidden; order: 2; }
+        #inbox { width: 320px; background: #121212; border-right: 1px solid #333; padding: 25px; display: flex; flex-direction: column; }
+        #view-vault { flex: 1; padding: 20px; overflow-y: auto; display: block; }
+        #view-map { flex: 1; display: none; position: relative; background: #050505; }
+        #cy { width: 100%; height: 100%; }
+
+        /* 通用样式 */
+        textarea { width: 100%; height: 150px; border-radius: 12px; border: 1px solid #333; background: #2c2c2e; color: #fff; padding: 12px; margin-bottom: 10px; resize: none; outline: none; }
+        button { background: var(--accent); color: white; border: none; padding: 12px; border-radius: 10px; font-weight: 600; cursor: pointer; }
+        .bank-item { background: var(--card); border-radius: 12px; padding: 15px; margin-bottom: 12px; border: 1px solid #333; cursor: pointer; }
+        .tag { display: inline-block; background: rgba(10, 132, 255, 0.15); color: var(--accent); padding: 3px 8px; border-radius: 4px; font-size: 10px; margin-right: 4px; }
         
-        textarea { width: 100%; height: 180px; border-radius: 12px; border: 1px solid #333; background: #2c2c2e; color: #fff; padding: 15px; margin-bottom: 15px; resize: none; font-size: 14px; line-height: 1.5; outline: none; }
-        button { background: var(--accent); color: white; border: none; padding: 14px; border-radius: 10px; font-weight: 600; cursor: pointer; transition: 0.2s; }
-        button:active { transform: scale(0.98); }
-        
-        .bank-item { background: var(--card); border-radius: 16px; padding: 20px; margin-bottom: 15px; border: 1px solid #333; cursor: pointer; position: relative; }
-        .tag { display: inline-block; background: rgba(10, 132, 255, 0.15); color: var(--accent); padding: 4px 10px; border-radius: 6px; font-size: 11px; margin-right: 5px; margin-bottom: 5px; }
-        
-        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(15px); display: none; align-items: center; justify-content: center; z-index: 100; }
-        .modal-card { width: 650px; max-height: 85vh; background: #2c2c2e; border-radius: 20px; padding: 30px; overflow-y: auto; border: 1px solid #444; }
-        
-        .note-content { line-height: 1.7; color: #eee; font-size: 15px; }
-        .note-content h1, .note-content h2 { color: var(--accent); border-bottom: 1px solid #444; padding-bottom: 8px; margin-top: 20px; }
-        .delete-btn { position: absolute; right: 15px; top: 15px; color: #ff453a; font-size: 18px; opacity: 0.5; cursor: pointer; }
+        .modal { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); display:none; align-items:center; justify-content:center; z-index:1000; }
+        .modal-card { width: 90%; max-width: 600px; background: #2c2c2e; border-radius: 20px; padding: 25px; max-height: 80vh; overflow-y: auto; }
+        .note-content { line-height: 1.6; color: #eee; }
 
         @media (max-width: 768px) {
-            body { flex-direction: column; overflow-y: auto; }
-            #inbox { width: 100%; border-right: none; height: auto; padding: 20px; box-sizing: border-box; }
-            .modal-card { width: 90%; padding: 20px; }
+            #inbox { display: none; } /* 手机端隐藏侧边栏，通过按钮呼出或合并 */
+            #main-container { flex-direction: column; }
         }
     </style>
 </head>
 <body>
 
-    <div id="inbox">
-        <h2 style="margin-top:0;">📝 知识下达</h2>
-        <textarea id="rawInput" placeholder="输入你的诉求（例如：帮我整理万历年间的大事记）或 粘贴长文链接..."></textarea>
-        <button onclick="startMetabolism()">生成详细笔记</button>
-
-        <div style="margin-top: auto; border-top: 1px solid #333; padding-top: 20px;">
-            <button onclick="updateKey()" style="background: #333; width: 100%; font-size: 12px; margin-bottom: 10px;">🔑 配置 DeepSeek Key</button>
-            <button onclick="clearAllData()" style="background: #410b0b; color: #ff453a; width: 100%; font-size: 12px;">🗑️ 清空保险箱</button>
-        </div>
-    </div>
-
-    <div id="workspace">
-        <h2 style="margin-top:0;">🧠 知识保险箱</h2>
-        <div id="knowledge-bank"></div>
-    </div>
-
-    <div id="mill-modal" class="modal">
-        <div class="modal-card">
-            <h3 id="ai-title" style="margin-top:0; color:var(--accent);">磨坊正在运转...</h3>
-            <div id="ai-result-preview" style="margin-bottom: 20px;">
-                <p id="ai-summary" style="font-weight:bold; font-size:16px;"></p>
-                <div id="ai-full-preview" class="note-content" style="background:#1c1c1e; padding:15px; border-radius:10px; max-height:300px; overflow-y:auto; font-size:13px; color:#ccc;"></div>
+    <div id="main-container">
+        <div id="inbox">
+            <h3 style="margin-top:0;">📝 知识下达</h3>
+            <textarea id="rawInput" placeholder="输入诉求或粘贴内容..."></textarea>
+            <button onclick="startMetabolism()">生成笔记</button>
+            <div style="margin-top: auto;">
+                <button onclick="updateKey()" style="background:#333; width:100%; font-size:11px;">🔑 配置 Key</button>
             </div>
-            <button id="save-btn" onclick="finishRecall()" style="width:100%; display:none;">确认并存入保险箱</button>
         </div>
+
+        <div id="view-vault">
+            <h2 style="margin-top:0;">🧠 知识保险箱</h2>
+            <div id="knowledge-bank"></div>
+        </div>
+
+        <div id="view-map">
+            <div id="cy"></div>
+            <div style="position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.6); padding: 8px; border-radius: 8px; pointer-events: none; font-size: 12px;">
+                💡 提示：相同标签的笔记会自动连线
+            </div>
+        </div>
+    </div>
+
+    <div id="nav-bar">
+        <div class="nav-item active" id="btn-vault" onclick="switchView('vault')">🗄️ 保险箱</div>
+        <div class="nav-item" id="btn-map" onclick="switchView('map')">🕸️ 知识脉络</div>
     </div>
 
     <div id="note-modal" class="modal" onclick="closeNote()">
         <div class="modal-card" onclick="event.stopPropagation()">
-            <span style="float: right; cursor: pointer; color: var(--sub); font-size: 28px;" onclick="closeNote()">&times;</span>
+            <h2 id="note-title" style="margin-top:0;"></h2>
             <div id="note-tags-display"></div>
-            <h2 id="note-title" style="margin: 10px 0;"></h2>
             <div id="note-body" class="note-content"></div>
+            <button id="synthesis-btn" style="margin-top:20px; width:100%; display:none; background:#ff9500;" onclick="startSynthesis()">✨ 融会贯通（生成综述）</button>
         </div>
     </div>
 
     <script>
         let API_KEY = localStorage.getItem('MY_MILL_KEY') || '';
+        let currentSynthesisTag = ""; // 用于追踪当前要融会贯通的标签
 
         function updateKey() {
             const key = prompt("请输入 DeepSeek API Key:", API_KEY);
-            if (key) { API_KEY = key.trim(); localStorage.setItem('MY_MILL_KEY', API_KEY); alert("Key 已保存！"); }
+            if(key) { API_KEY = key.trim(); localStorage.setItem('MY_MILL_KEY', API_KEY); }
         }
 
         window.onload = () => {
-            const savedData = localStorage.getItem('my_knowledge_vault');
-            if (savedData) JSON.parse(savedData).forEach(item => renderItem(item));
+            refreshVault();
+            initMap();
         };
 
+        // 视图切换
+        function switchView(view) {
+            document.getElementById('view-vault').style.display = view === 'vault' ? 'block' : 'none';
+            document.getElementById('view-map').style.display = view === 'map' ? 'block' : 'none';
+            document.getElementById('btn-vault').classList.toggle('active', view === 'vault');
+            document.getElementById('btn-map').classList.toggle('active', view === 'map');
+            if(view === 'map') refreshMap();
+        }
+
+        function refreshVault() {
+            const bank = document.getElementById('knowledge-bank');
+            bank.innerHTML = "";
+            const data = JSON.parse(localStorage.getItem('my_knowledge_vault') || '[]');
+            data.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'bank-item';
+                div.onclick = () => openNote(item);
+                div.innerHTML = `<div class="tags">${(item.tags||[]).map(t=>`<span class="tag">${t}</span>`).join('')}</div><div style="font-weight:bold; margin-top:5px;">${item.summary}</div>`;
+                bank.appendChild(div);
+            });
+        }
+
+        // --- 脉络图逻辑 ---
+        let cy;
+        function initMap() {
+            cy = cytoscape({
+                container: document.getElementById('cy'),
+                style: [
+                    { selector: 'node', style: { 'background-color': '#0A84FF', 'label': 'data(label)', 'color': '#fff', 'font-size': '10px', 'text-valign': 'center', 'width': '40px', 'height': '40px' }},
+                    { selector: 'node[type="tag"]', style: { 'background-color': '#ff9500', 'width': '50px', 'height': '50px', 'font-size': '12px' }},
+                    { selector: 'edge', style: { 'width': 2, 'line-color': '#333', 'curve-style': 'bezier' }}
+                ],
+                layout: { name: 'cose', animate: true }
+            });
+
+            cy.on('tap', 'node', function(evt){
+                const node = evt.target;
+                if(node.data('type') === 'note') {
+                    openNote(node.data('raw'));
+                } else if(node.data('type') === 'tag') {
+                    showTagSynthesisOption(node.data('label'));
+                }
+            });
+        }
+
+        function refreshMap() {
+            cy.elements().remove();
+            const data = JSON.parse(localStorage.getItem('my_knowledge_vault') || '[]');
+            let elements = [];
+            let tagsFound = new Set();
+
+            data.forEach(note => {
+                // 添加笔记节点
+                elements.push({ data: { id: 'n' + note.id, label: note.summary.substring(0,10)+'...', type: 'note', raw: note } });
+                // 添加标签节点并连线
+                (note.tags || []).forEach(tag => {
+                    if(!tagsFound.has(tag)) {
+                        elements.push({ data: { id: 't' + tag, label: tag, type: 'tag' } });
+                        tagsFound.add(tag);
+                    }
+                    elements.push({ data: { id: 'e' + note.id + tag, source: 'n' + note.id, target: 't' + tag } });
+                });
+            });
+            cy.add(elements);
+            cy.layout({ name: 'cose', padding: 50 }).run();
+        }
+
+        // --- 代谢与生成逻辑 ---
         async function startMetabolism() {
             if (!API_KEY) return updateKey();
             let input = document.getElementById('rawInput').value.trim();
@@ -110,10 +183,10 @@
             输出纯JSON格式:
             {
               "summary": "一句话核心定义/描述",
-              "full_note": "详尽的Markdown格式笔记，要求：1.背景起因 2.核心事件/逻辑脉络 3.关键影响 4.复习要点。不要过于简略，保持深度，有阅读趣味。",
+              "full_note": "详尽的Markdown格式笔记，按逻辑推进内容，不要过于简略，保持深度，保持阅读趣味性。",
               "tags": ["领域", "核心词"]
             }
-            用户诉求/内容: ${input.substring(0, 10000)}`;
+            用户诉求/内容: ${input.substring(0, 15000)}`;
 
             try {
                 const res = await fetch("https://api.deepseek.com/chat/completions", {
@@ -141,45 +214,48 @@
             }
         }
 
-        function finishRecall() {
-            const newItem = { id: Date.now(), time: new Date().toLocaleString(), ...window.currentData };
-            const savedData = JSON.parse(localStorage.getItem('my_knowledge_vault') || '[]');
-            savedData.unshift(newItem);
-            localStorage.setItem('my_knowledge_vault', JSON.stringify(savedData));
-            renderItem(newItem, true);
-            document.getElementById('mill-modal').style.display = 'none';
-            document.getElementById('rawInput').value = "";
+        // --- 融会贯通逻辑 ---
+        function showTagSynthesisOption(tag) {
+            currentSynthesisTag = tag;
+            document.getElementById('note-title').innerText = `主题板块：${tag}`;
+            document.getElementById('note-body').innerHTML = `<p>这个板块下共有多篇笔记。点击下方按钮，AI将整合所有内容，为你生成一份贯通后的深度综述。</p>`;
+            document.getElementById('note-tags-display').innerHTML = "";
+            document.getElementById('synthesis-btn').style.display = 'block';
+            document.getElementById('note-modal').style.display = 'flex';
         }
 
-        function renderItem(item, isNew = false) {
-            const div = document.createElement('div');
-            div.className = 'bank-item';
-            div.id = `item-${item.id}`;
-            div.onclick = () => openNote(item);
-            div.innerHTML = `
-                <span class="delete-btn" onclick="deleteItem(event, ${item.id})">&times;</span>
-                <div>${(item.tags || []).map(t => `<span class="tag">${t}</span>`).join('')}</div>
-                <p style="font-weight:bold; margin:10px 0;">${item.summary}</p>
-                <small style="color:var(--sub)">${item.time}</small>
-            `;
-            const bank = document.getElementById('knowledge-bank');
-            if (isNew) bank.prepend(div); else bank.appendChild(div);
+        async function startSynthesis() {
+            document.getElementById('note-body').innerHTML = "✨ 正在融合知识，请稍候...";
+            const data = JSON.parse(localStorage.getItem('my_knowledge_vault') || '[]');
+            const relevantNotes = data.filter(n => n.tags.includes(currentSynthesisTag));
+            
+            const context = relevantNotes.map(n => n.full_note).join("\n---\n");
+            const prompt = `你是一个知识架构师。以下是关于“${currentSynthesisTag}”的几篇笔记内容。请将它们融会贯通，写出一篇深度的综述，指出这些知识点之间的内在联系、演变逻辑或共同规律。内容要详尽且成体系。内容如下：\n${context}`;
+
+            try {
+                const res = await fetch("https://api.deepseek.com/chat/completions", {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${API_KEY}` },
+                    body: JSON.stringify({
+                        model: "deepseek-chat",
+                        messages: [{role: "user", content: prompt}]
+                    })
+                });
+                const result = await res.json();
+                const text = result.choices[0].message.content;
+                document.getElementById('note-body').innerHTML = marked.parse(text);
+                document.getElementById('synthesis-btn').style.display = 'none';
+            } catch(e) { alert("融会贯通失败"); }
         }
 
         function openNote(item) {
             document.getElementById('note-title').innerText = item.summary;
             document.getElementById('note-body').innerHTML = marked.parse(item.full_note);
             document.getElementById('note-tags-display').innerHTML = (item.tags || []).map(t => `<span class="tag">${t}</span>`).join('');
+            document.getElementById('synthesis-btn').style.display = 'none';
             document.getElementById('note-modal').style.display = 'flex';
         }
-
         function closeNote() { document.getElementById('note-modal').style.display = 'none'; }
-        function deleteItem(e, id) { e.stopPropagation(); if(confirm("删除此笔记？")) { 
-            let data = JSON.parse(localStorage.getItem('my_knowledge_vault') || '[]');
-            localStorage.setItem('my_knowledge_vault', JSON.stringify(data.filter(i => i.id !== id)));
-            document.getElementById(`item-${id}`).remove();
-        }}
-        function clearAllData() { if(confirm("清空保险箱？")) { localStorage.clear(); location.reload(); }}
     </script>
 </body>
 </html>
